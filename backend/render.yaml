@@ -1,0 +1,13 @@
+services:
+  - type: web
+    name: letterboxd-randomizer-api
+    runtime: python
+    region: frankfurt          # el más cercano a España
+    plan: free
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn main:app --host 0.0.0.0 --port $PORT
+    envVars:
+      - key: TMDB_API_TOKEN
+        sync: false            # se introduce manualmente en el dashboard de Render
+      - key: FRONTEND_URL
+        sync: false            # se rellena con la URL de Vercel tras el primer deploy

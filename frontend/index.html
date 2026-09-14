@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Letterboxd Randomizer</title>
+  <link rel="icon" type="image/png" href="../recursos/LetterboxdRandomiser.png" />
+  <link rel="stylesheet" href="style.css" />
+</head>
+<body>
+
+  <div class="app">
+    <header>
+      <h1><img src="../recursos/LetterboxdRandomiser.png" alt="Logo" class="header-logo" /> Letterboxd Randomizer</h1>
+      <p class="subtitle">Elige una película al azar de tus listas</p>
+    </header>
+
+    <!-- ── SECCIÓN: FUENTES ── -->
+    <section class="card" id="section-sources">
+      <h2>1. Fuentes</h2>
+
+      <!-- Username para watchlist / listas del usuario -->
+      <div class="field-group">
+        <label for="input-username">Usuario de Letterboxd</label>
+        <div class="row">
+          <input type="text" id="input-username" placeholder="nombre de usuario" />
+          <button class="btn-secondary" id="btn-load-watchlist">Cargar watchlist</button>
+          <button class="btn-secondary" id="btn-browse-lists">Ver sus listas</button>
+          <button class="btn-secondary" id="btn-browse-liked">Ver listas con ♥</button>
+        </div>
+      </div>
+
+      <!-- Lista de listas del usuario (oculta hasta que se cargue) -->
+      <div id="user-lists-panel" class="hidden">
+        <p class="hint">Listas creadas por el usuario — selecciona las que quieras incluir:</p>
+        <div id="user-lists-container"></div>
+      </div>
+
+      <!-- Lista de listas con like (oculta hasta que se cargue) -->
+      <div id="liked-lists-panel" class="hidden">
+        <p class="hint">Listas a las que ha dado ♥ — selecciona las que quieras incluir:</p>
+        <div id="liked-lists-container"></div>
+      </div>
+
+      <!-- URLs manuales -->
+      <div class="field-group">
+        <label>URLs de listas públicas</label>
+        <div id="url-inputs">
+          <div class="url-row">
+            <input type="url" class="url-input" placeholder="https://letterboxd.com/usuario/list/mi-lista/" />
+            <button class="btn-icon btn-remove-url" title="Eliminar">✕</button>
+          </div>
+        </div>
+        <button class="btn-ghost" id="btn-add-url">+ Añadir otra URL</button>
+      </div>
+
+      <!-- Resumen de fuentes activas -->
+      <div id="active-sources" class="hidden">
+        <p class="hint">Fuentes activas:</p>
+        <ul id="active-sources-list"></ul>
+      </div>
+
+      <button class="btn-primary" id="btn-load-films">Cargar películas</button>
+    </section>
+
+    <!-- ── SECCIÓN: FILTROS ── -->
+    <section class="card hidden" id="section-filters">
+      <h2>2. Filtros</h2>
+
+      <div class="field-group">
+        <label>Géneros</label>
+        <div class="genre-controls">
+          <button class="btn-ghost small" id="btn-select-all-genres">Todos</button>
+          <button class="btn-ghost small" id="btn-clear-genres">Ninguno</button>
+        </div>
+        <div id="genre-chips" class="chip-container"></div>
+      </div>
+
+      <p class="film-count" id="film-count-label"></p>
+    </section>
+
+    <!-- ── SECCIÓN: RESULTADO ── -->
+    <section class="card hidden" id="section-result">
+      <h2>3. ¡Tu película!</h2>
+      <button class="btn-primary big" id="btn-randomize">🎲 Elegir al azar</button>
+
+      <div id="result-card" class="hidden">
+        <div class="result-inner">
+          <img id="result-poster" src="" alt="Poster" />
+          <div class="result-info">
+            <h3 id="result-title"></h3>
+            <p id="result-year" class="muted"></p>
+            <div id="result-genres" class="chip-container small"></div>
+            <p id="result-overview"></p>
+            <a id="result-link" href="#" target="_blank" class="btn-secondary">Ver en Letterboxd ↗</a>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ── LOADER ── -->
+    <div id="loader" class="hidden">
+      <div class="spinner"></div>
+      <p id="loader-text">Cargando...</p>
+    </div>
+
+    <!-- ── TOAST ── -->
+    <div id="toast" class="hidden"></div>
+  </div>
+
+  <script>
+    // Inyectado en build time por Vercel (ver vercel.json env vars).
+    // En local esta variable no existe y app.js usa el fallback localhost.
+    window.ENV_API_BASE = "VITE_API_BASE_PLACEHOLDER";
+  </script>
+  <script src="app.js"></script>
+</body>
+</html>
