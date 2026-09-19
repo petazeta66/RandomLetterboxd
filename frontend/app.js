@@ -9,6 +9,7 @@ const state = {
   allFilms: [],          // Películas crudas del scraper
   enrichedFilms: [],     // Películas con géneros e info de TMDB
   selectedGenres: new Set(),
+  minRating: 0,          // Rating mínimo (0 = sin filtro, 1-10 = valor)
   availableGenres: [],   // [{id, name}]
   activeSources: [],     // [{label, url}]
 };
@@ -196,24 +197,75 @@ function renderGenreChips() {
   });
 }
 
+function renderRatingStars() {
+  const container = $("rating-stars");
+  container.innerHTML = "";
+
+  // 0 = sin filtro, 1-10 = rating mínimo
+  for (let rating = 0; rating <= 10; rating++) {
+    const star = document.createElement("button");
+    star.className = "rating-star" + (state.minRating === rating ? " active" : "");
+    star.dataset.rating = rating;
+    
+    if (rating === 0) {
+      star.innerHTML = "✕";
+      star.title = "Sin filtro";
+    } else {
+      star.innerHTML = "★";
+      star.title = `${rating}/10 o más`;
+    }
+    
+    star.addEventListener("click", () => {
+      state.minRating = rating;
+      renderRatingStars();
+      updateFilmCount();
+    });
+    
+    container.appendChild(star);
+  }
+
+  // Actualizar label
+  const label = $("rating-label");
+  if (state.minRating === 0) {
+    label.textContent = "Sin filtro de rating";
+  } else {
+    label.textContent = `Mostrando películas con rating ≥ ${state.minRating}/10`;
+  }
+}
+
 function getFilteredFilms() {
-  if (state.selectedGenres.size === 0) return state.enrichedFilms;
-  return state.enrichedFilms.filter(f =>
-    f.genres.some(gid => state.selectedGenres.has(gid))
-  );
+  if (state.selectedGenres.size === 0 && state.minRating === 0) {
+    return state.enrichedFilms;
+  }
+  return state.enrichedFilms.filter(f => {
+    // Filtro de géneros
+    if (state.selectedGenres.size > 0 && !f.genres.some(gid => state.selectedGenres.has(gid))) {
+      return false;
+    }
+    // Filtro de rating
+    if (state.minRating > 0) {
+      const rating = f.tmdbData?.vote_average ?? 0;
+      if (rating < state.minRating) {
+        return false;
+      }
+    }
+    return true;
+  });
 }
 
 function updateFilmCount() {
   const filtered = getFilteredFilms();
-  $("film-count-label").innerHTML =
-    `<strong>${filtered.length}</strong> película${filtered.length !== 1 ? "s" : ""} disponible${filtered.length !== 1 ? "s" : ""} con los filtros actuales`;
+  const label = state.selectedGenres.size === 0
+    ? `<strong>${filtered.length}</strong> película${filtered.length !== 1 ? "s" : ""} disponible${filtered.length !== 1 ? "s" : ""} (selecciona géneros para filtrar)`
+    : `<strong>${filtered.length}</strong> película${filtered.length !== 1 ? "s" : ""} disponible${filtered.length !== 1 ? "s" : ""} con los filtros actuales`;
+  $("film-count-label").innerHTML = label;
 }
 
 // ── RESULTADO ─────────────────────────────────────────────────────────────────
 async function showRandomFilm() {
   const pool = getFilteredFilms();
   if (pool.length === 0) {
-    showToast("No hay películas con los géneros seleccionados.", "error");
+    showToast("No hay películas con los géneros seleccionados. Selecciona algunos géneros o pulsa 'Todos'.", "error");
     return;
   }
 
@@ -275,10 +327,12 @@ async function loadEverything() {
     const presentIds = new Set(films.flatMap(f => f.genres));
     state.availableGenres = genres.filter(g => presentIds.has(g.id));
 
-    // Seleccionar todos por defecto
-    state.selectedGenres = new Set(state.availableGenres.map(g => g.id));
+    // No seleccionar ninguno por defecto (usuario elige cuáles quiere)
+    state.selectedGenres = new Set();
+    state.minRating = 0;
 
     renderGenreChips();
+    renderRatingStars();
     updateFilmCount();
 
     $("section-filters").classList.remove("hidden");
