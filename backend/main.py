@@ -3,6 +3,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from typing import Optional
 import os
+import asyncio
 import httpx
 from dotenv import load_dotenv
 
@@ -64,6 +65,85 @@ async def get_films(req: ScrapeRequest):
         raise HTTPException(status_code=404, detail="No se encontraron películas en las fuentes indicadas.")
 
     return {"count": len(films), "films": films}
+
+
+@app.post("/api/films/enriched")
+async def get_films_enriched(req: ScrapeRequest):
+    """
+    Scrapea las fuentes y enriquece todas las películas con datos de TMDB
+    en paralelo dentro del servidor. Mucho más rápido que hacerlo desde el frontend.
+    """
+    if not req.sources:
+        raise HTTPException(status_code=400, detail="Debes proporcionar al menos una URL.")
+
+    films = await scrape_multiple_sources(req.sources)
+    if not films:
+        raise HTTPException(status_code=404, detail="No se encontraron películas en las fuentes indicadas.")
+
+    headers = get_tmdb_headers()
+
+    # Géneros en paralelo con el enriquecimiento
+    async with httpx.AsyncClient(timeout=10) as client:
+
+        async def enrich_one(film: dict) -> dict:
+            params = {"query": film["name"], "language": "es-ES"}
+            if film.get("year"):
+                params["year"] = film["year"]
+            try:
+                resp = await client.get(
+                    f"{TMDB_BASE}/search/movie",
+                    params=params,
+                    headers=headers,
+                )
+                result = resp.json().get("results", [])
+                tmdb = result[0] if result else None
+            except Exception:
+                tmdb = None
+
+            if not tmdb:
+                return {**film, "genres": [], "tmdbData": None}
+
+            return {
+                **film,
+                "genres": tmdb.get("genre_ids", []),
+                "tmdbData": {
+                    "id": tmdb.get("id"),
+                    "overview": tmdb.get("overview", ""),
+                    "poster_path": tmdb.get("poster_path"),
+                    "release_date": tmdb.get("release_date", ""),
+                    "vote_average": tmdb.get("vote_average"),
+                },
+            }
+
+        async def fetch_genres() -> list:
+            try:
+                resp = await client.get(
+                    f"{TMDB_BASE}/genre/movie/list",
+                    params={"language": "es-ES"},
+                    headers=headers,
+                )
+                return resp.json().get("genres", [])
+            except Exception:
+                return []
+
+        # Lanzar todo en paralelo: géneros + enriquecimiento de cada película
+        # Limitar concurrencia a 40 para no saturar TMDB
+        semaphore = asyncio.Semaphore(40)
+
+        async def enrich_limited(film):
+            async with semaphore:
+                return await enrich_one(film)
+
+        enriched, genres = await asyncio.gather(
+            asyncio.gather(*[enrich_limited(f) for f in films]),
+            fetch_genres(),
+        )
+
+    return {
+        "count": len(enriched),
+        "films": list(enriched),
+        "genres": genres,
+    }
 
 
 @app.get("/api/watchlist/{username}")

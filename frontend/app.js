@@ -40,6 +40,8 @@ function randomFrom(arr) {
 }
 
 // ── TMDB (proxy a través del backend — el token nunca llega al navegador) ─────
+// Los endpoints individuales se mantienen por si se necesitan en el futuro,
+// pero el flujo principal usa /api/films/enriched que lo hace todo en el servidor.
 async function tmdbSearch(title, year) {
   const params = new URLSearchParams({ query: title });
   if (year) params.set("year", year);
@@ -105,8 +107,8 @@ async function fetchGenreList() {
 }
 
 // ── LETTERBOXD ────────────────────────────────────────────────────────────────
-async function loadFilmsFromSources(urls) {
-  const res = await fetch(`${API_BASE}/api/films`, {
+async function loadFilmsEnriched(urls) {
+  const res = await fetch(`${API_BASE}/api/films/enriched`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ sources: urls }),
@@ -115,7 +117,7 @@ async function loadFilmsFromSources(urls) {
     const err = await res.json().catch(() => ({}));
     throw new Error(err.detail ?? "Error al cargar películas");
   }
-  return (await res.json()).films;
+  return await res.json(); // { films, genres, count }
 }
 
 async function loadUserLists(username) {
@@ -256,24 +258,21 @@ async function loadEverything() {
     return;
   }
 
-  showLoader("Scrapeando Letterboxd...");
+  showLoader("Scrapeando Letterboxd y consultando TMDB...");
 
   try {
-    const films = await loadFilmsFromSources(urls);
+    // Un solo endpoint hace scraping + enriquecimiento TMDB en paralelo en el servidor
+    const { films, genres } = await loadFilmsEnriched(urls);
+
     if (films.length === 0) {
       showToast("No se encontraron películas en las fuentes indicadas.", "error");
       return;
     }
 
-    showLoader(`Consultando TMDB para ${films.length} películas...`);
-    const genres = await fetchGenreList();
-    state.availableGenres = genres;
+    state.enrichedFilms = films;
 
-    const enriched = await enrichFilms(films);
-    state.enrichedFilms = enriched;
-
-    // Géneros presentes en las películas
-    const presentIds = new Set(enriched.flatMap(f => f.genres));
+    // Géneros presentes en las películas cargadas
+    const presentIds = new Set(films.flatMap(f => f.genres));
     state.availableGenres = genres.filter(g => presentIds.has(g.id));
 
     // Seleccionar todos por defecto
@@ -286,7 +285,7 @@ async function loadEverything() {
     $("section-result").classList.remove("hidden");
     $("section-filters").scrollIntoView({ behavior: "smooth" });
 
-    showToast(`${enriched.length} películas cargadas correctamente.`, "success");
+    showToast(`${films.length} películas cargadas correctamente.`, "success");
   } catch (err) {
     showToast(err.message, "error");
   } finally {
