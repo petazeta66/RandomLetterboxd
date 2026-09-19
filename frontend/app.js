@@ -178,35 +178,25 @@ function renderActiveSources() {
 function updateSharedToggleUI() {
   const btn = $("btn-toggle-shared");
   const info = $("shared-info");
-  const sourceCount = state.loadedUrls.length;
+  const hasMultipleSources = state.loadedUrls.length > 1;
 
-  if (sourceCount <= 1) {
-    btn.disabled = true;
-    btn.style.opacity = "0.5";
-    btn.style.cursor = "default";
-    info.classList.add("hidden");
-    state.onlyShared = false;
+  btn.disabled = !hasMultipleSources;
+  btn.style.opacity = hasMultipleSources ? "1" : "0.5";
+  btn.style.cursor = hasMultipleSources ? "pointer" : "default";
+
+  if (state.onlyShared && hasMultipleSources) {
+    btn.classList.add("active");
+    btn.querySelector(".toggle-icon").textContent = "◉";
+    info.textContent = "Mostrando solo peliculas compartidas entre " + state.loadedUrls.length + " fuentes";
+    info.classList.remove("hidden");
   } else {
-    btn.disabled = false;
-    btn.style.opacity = "1";
-    btn.style.cursor = "pointer";
-
-    if (state.onlyShared) {
-      btn.classList.add("active");
-      btn.dataset.active = "true";
-      btn.querySelector(".toggle-icon").textContent = "◉";
-
-      // Mostrar que está filtrado
-      info.textContent = `Mostrando películas de todas las ${sourceCount} fuentes`;
-      info.classList.remove("hidden");
-    } else {
-      btn.classList.remove("active");
-      btn.dataset.active = "false";
-      btn.querySelector(".toggle-icon").textContent = "◎";
-      info.classList.add("hidden");
-    }
+    state.onlyShared = false;
+    btn.classList.remove("active");
+    btn.querySelector(".toggle-icon").textContent = "◎";
+    info.classList.add("hidden");
   }
 }
+
 function renderGenreChips() {
   const container = $("genre-chips");
   container.innerHTML = "";
