@@ -238,51 +238,63 @@ button { cursor: pointer; font-family: inherit; border: none; transition: var(--
 }
 
 /* ── Rating stars ── */
-.rating-stars-visual {
+.rating-container {
   display: flex;
-  gap: 0.6rem;
-  margin-top: 0.5rem;
-  flex-wrap: wrap;
-}
-
-.rating-btn {
-  background: transparent;
-  border: 2px solid transparent;
-  border-radius: var(--radius-sm);
-  padding: 0.4rem 0.6rem;
-  cursor: pointer;
-  transition: var(--transition);
-  display: flex;
-  gap: 0.15rem;
   align-items: center;
+  gap: 0.8rem;
+  margin-top: 0.5rem;
 }
 
-.rating-btn.no-filter {
-  font-size: 1.2rem;
-  color: var(--text-muted);
-  min-width: 40px;
-  justify-content: center;
+.rating-stars-drag {
+  display: flex;
+  gap: 0.4rem;
+  align-items: center;
+  cursor: pointer;
+  user-select: none;
+  flex: 1;
+  padding: 0.4rem 0.6rem;
+  border-radius: var(--radius-sm);
+  transition: background-color var(--transition);
 }
 
-.rating-btn.no-filter:hover {
-  color: var(--accent);
-  border-color: var(--accent);
-}
-
-.rating-btn.star-rating img {
-  width: 16px;
-  height: 16px;
-  object-fit: contain;
-}
-
-.rating-btn:hover {
-  border-color: var(--accent);
+.rating-stars-drag:hover {
   background: rgba(0, 192, 48, 0.1);
 }
 
-.rating-btn.active {
-  background: rgba(0, 192, 48, 0.2);
-  border-color: var(--accent);
+.rating-star-drag {
+  width: 24px;
+  height: 24px;
+  flex: 1;
+  max-width: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.rating-star-drag img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  display: block;
+}
+
+.btn-clear-rating {
+  background: transparent;
+  border: 1px solid var(--border);
+  color: var(--text-muted);
+  font-size: 1rem;
+  padding: 0.4rem 0.5rem;
+  border-radius: var(--radius-sm);
+  cursor: pointer;
+  transition: var(--transition);
+  line-height: 1;
+  min-width: 32px;
+  text-align: center;
+}
+
+.btn-clear-rating:hover {
+  color: var(--danger);
+  border-color: var(--danger);
 }
 
 /* ── User lists ── */

@@ -198,50 +198,41 @@ function renderGenreChips() {
 }
 
 function renderRatingStars() {
-  const container = $("rating-stars");
+  const container = $("rating-stars-drag");
   container.innerHTML = "";
 
-  // Opciones: 0 (sin filtro), 0.5, 1, 1.5, 2, 2.5, 3, 3.5, 4, 4.5, 5
-  const ratings = [0, 0.5, 1, 1.5, 2, 2.5, 3, 3.5, 4, 4.5, 5];
+  // Crear 5 estrellas
+  for (let i = 1; i <= 5; i++) {
+    const star = document.createElement("div");
+    star.className = "rating-star-drag";
+    star.dataset.starIndex = i;
+    star.innerHTML = `<img src="assets/estrella_vacia.png" alt="star" />`;
+    container.appendChild(star);
+  }
 
-  ratings.forEach(rating => {
-    const btn = document.createElement("button");
-    btn.className = "rating-btn" + (state.minRating === rating ? " active" : "");
-    btn.dataset.rating = rating;
-    
-    if (rating === 0) {
-      btn.innerHTML = "✕";
-      btn.title = "Sin filtro";
-      btn.classList.add("no-filter");
+  updateRatingDisplay();
+  attachRatingListeners();
+}
+
+function updateRatingDisplay() {
+  const stars = document.querySelectorAll(".rating-star-drag");
+  const fullStars = Math.floor(state.minRating / 2); // Convertir de escala 0-10 a 0-5
+  const hasHalf = (state.minRating % 2 === 1);
+
+  stars.forEach((star, idx) => {
+    const starNum = idx + 1;
+    const img = star.querySelector("img");
+
+    if (starNum < fullStars) {
+      img.src = "assets/estrella_llena.png";
+      img.alt = "full star";
+    } else if (starNum === fullStars && hasHalf) {
+      img.src = "assets/estrella_mitad.png";
+      img.alt = "half star";
     } else {
-      // Renderizar estrellas visuales
-      const fullStars = Math.floor(rating);
-      const hasHalf = rating % 1 === 0.5;
-      const emptyStars = 5 - fullStars - (hasHalf ? 1 : 0);
-      
-      let starHtml = "";
-      for (let i = 0; i < fullStars; i++) {
-        starHtml += `<img src="assets/estrella_llena.png" alt="star" />`;
-      }
-      if (hasHalf) {
-        starHtml += `<img src="assets/estrella_mitad.png" alt="half-star" />`;
-      }
-      for (let i = 0; i < emptyStars; i++) {
-        starHtml += `<img src="assets/estrella_vacia.png" alt="empty-star" />`;
-      }
-      
-      btn.innerHTML = starHtml;
-      btn.title = `${rating}/5 o más`;
-      btn.classList.add("star-rating");
+      img.src = "assets/estrella_vacia.png";
+      img.alt = "empty star";
     }
-    
-    btn.addEventListener("click", () => {
-      state.minRating = rating === 0 ? 0 : (rating / 5) * 10; // Convertir a escala 0-10
-      renderRatingStars();
-      updateFilmCount();
-    });
-    
-    container.appendChild(btn);
   });
 
   // Actualizar label
@@ -249,9 +240,60 @@ function renderRatingStars() {
   if (state.minRating === 0) {
     label.textContent = "Sin filtro de rating";
   } else {
-    const starsOut5 = (state.minRating / 10) * 5;
+    const starsOut5 = state.minRating / 2;
     label.textContent = `Mostrando películas con rating ≥ ${starsOut5.toFixed(1)}/5`;
   }
+}
+
+function attachRatingListeners() {
+  const container = $("rating-stars-drag");
+  const clearBtn = $("btn-clear-rating");
+
+  let isDragging = false;
+
+  const handleMouseMove = (e) => {
+    if (!isDragging) return;
+    updateRatingFromMouse(e);
+  };
+
+  const handleMouseDown = (e) => {
+    isDragging = true;
+    updateRatingFromMouse(e);
+  };
+
+  const handleMouseUp = () => {
+    isDragging = false;
+  };
+
+  const handleMouseLeave = () => {
+    isDragging = false;
+  };
+
+  function updateRatingFromMouse(e) {
+    const rect = container.getBoundingClientRect();
+    const x = e.clientX - rect.left;
+    const width = rect.width;
+    const ratio = Math.max(0, Math.min(1, x / width));
+    
+    // Convertir a escala 0-10 con precisión de 0.5
+    let newRating = Math.round(ratio * 20) / 2; // Esto da: 0, 0.5, 1, 1.5, 2, ..., 10
+    newRating = Math.min(newRating, 10); // Cap a 10
+    
+    state.minRating = newRating;
+    updateRatingDisplay();
+    updateFilmCount();
+  }
+
+  container.addEventListener("mousedown", handleMouseDown);
+  container.addEventListener("mousemove", handleMouseMove);
+  document.addEventListener("mouseup", handleMouseUp);
+  container.addEventListener("mouseleave", handleMouseLeave);
+
+  clearBtn.addEventListener("click", () => {
+    state.minRating = 0;
+    updateRatingDisplay();
+    updateFilmCount();
+  });
 }
 
 function getFilteredFilms() {
