@@ -473,8 +473,51 @@ button { cursor: pointer; font-family: inherit; border: none; transition: var(--
   to   { opacity: 1; transform: translateX(-50%) translateY(0); }
 }
 
-/* ── Hint ── */
-.hint { color: var(--text-muted); font-size: 0.85rem; }
+/* ── Toggles ── */
+.filter-toggles {
+  display: flex;
+  gap: 0.5rem;
+  flex-wrap: wrap;
+}
+
+.btn-toggle {
+  background: var(--surface2);
+  border: 1px solid var(--border);
+  color: var(--text-muted);
+  padding: 0.5rem 0.8rem;
+  border-radius: var(--radius-sm);
+  font-size: 0.85rem;
+  cursor: pointer;
+  transition: var(--transition);
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  white-space: nowrap;
+}
+
+.btn-toggle:hover:not(:disabled) {
+  border-color: var(--accent);
+  color: var(--text);
+  background: rgba(0, 192, 48, 0.08);
+}
+
+.btn-toggle.active {
+  background: rgba(0, 192, 48, 0.2);
+  border-color: var(--accent);
+  color: var(--accent);
+  font-weight: 600;
+}
+
+.btn-toggle:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.toggle-icon {
+  font-size: 0.9rem;
+  display: inline-block;
+  min-width: 12px;
+}
 
 /* ── Hidden ── */
 .hidden { display: none !important; }

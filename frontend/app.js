@@ -12,6 +12,8 @@ const state = {
   minRating: 0,          // Rating mínimo (0 = sin filtro, 1-10 = valor)
   availableGenres: [],   // [{id, name}]
   activeSources: [],     // [{label, url}]
+  onlyShared: false,     // Mostrar solo películas compartidas entre fuentes
+  filmsBySource: {},     // {sourceUrl: [films]} para detectar compartidas
 };
 
 // ── Utilidades ────────────────────────────────────────────────────────────────
@@ -121,6 +123,30 @@ async function loadFilmsEnriched(urls) {
   return await res.json(); // { films, genres, count }
 }
 
+// Cargar películas sin enriquecer (para detectar compartidas entre fuentes)
+async function loadFilmsFromSourcesRaw(urls) {
+  const result = {};
+  
+  const promises = urls.map(async (url) => {
+    try {
+      const res = await fetch(`${API_BASE}/api/films`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ sources: [url] }),
+      });
+      if (res.ok) {
+        const data = await res.json();
+        result[url] = data.films || [];
+      }
+    } catch (err) {
+      result[url] = [];
+    }
+  });
+
+  await Promise.all(promises);
+  return result;
+}
+
 async function loadUserLists(username) {
   const res = await fetch(`${API_BASE}/api/user-lists/${encodeURIComponent(username)}`);
   if (!res.ok) {
@@ -173,7 +199,51 @@ function renderActiveSources() {
   });
 }
 
-// ── GÉNEROS ───────────────────────────────────────────────────────────────────
+// ── Botón toggle compartidas ──────────────────────────────────────────────────
+function updateSharedToggleUI() {
+  const btn = $("btn-toggle-shared");
+  const info = $("shared-info");
+  const sourceCount = Object.keys(state.filmsBySource).length;
+
+  if (sourceCount <= 1) {
+    btn.disabled = true;
+    btn.style.opacity = "0.5";
+    btn.style.cursor = "default";
+    info.classList.add("hidden");
+    state.onlyShared = false;
+  } else {
+    btn.disabled = false;
+    btn.style.opacity = "1";
+    btn.style.cursor = "pointer";
+
+    if (state.onlyShared) {
+      btn.classList.add("active");
+      btn.dataset.active = "true";
+      btn.querySelector(".toggle-icon").textContent = "◉";
+
+      // Contar películas compartidas
+      const sharedCount = getFilteredFilms().length;
+      info.textContent = `${sharedCount} película${sharedCount !== 1 ? "s" : ""} aparecen en todas las fuentes`;
+      info.classList.remove("hidden");
+    } else {
+      btn.classList.remove("active");
+      btn.dataset.active = "false";
+      btn.querySelector(".toggle-icon").textContent = "◎";
+      info.classList.add("hidden");
+    }
+  }
+}
+
+function attachSharedToggleListener() {
+  const btn = $("btn-toggle-shared");
+  btn.addEventListener("click", () => {
+    if (Object.keys(state.filmsBySource).length > 1) {
+      state.onlyShared = !state.onlyShared;
+      updateSharedToggleUI();
+      updateFilmCount();
+    }
+  });
+}
 function renderGenreChips() {
   const container = $("genre-chips");
   container.innerHTML = "";
@@ -295,23 +365,45 @@ function attachRatingListeners() {
 }
 
 function getFilteredFilms() {
-  if (state.selectedGenres.size === 0 && state.minRating === 0) {
-    return state.enrichedFilms;
-  }
-  return state.enrichedFilms.filter(f => {
-    // Filtro de géneros
-    if (state.selectedGenres.size > 0 && !f.genres.some(gid => state.selectedGenres.has(gid))) {
-      return false;
-    }
-    // Filtro de rating
-    if (state.minRating > 0) {
-      const rating = f.tmdbData?.vote_average ?? 0;
-      if (rating < state.minRating) {
-        return false;
+  let films = state.enrichedFilms;
+
+  // Filtro de películas compartidas
+  if (state.onlyShared && Object.keys(state.filmsBySource).length > 1) {
+    const sharedSlugs = new Set();
+    const sourceUrls = Object.keys(state.filmsBySource);
+    
+    // Encontrar slugs que aparecen en todas las fuentes
+    sourceUrls.forEach((url, idx) => {
+      const slugsInSource = new Set(state.filmsBySource[url].map(f => f.slug));
+      if (idx === 0) {
+        slugsInSource.forEach(slug => sharedSlugs.add(slug));
+      } else {
+        // Mantener solo los que están en todas las fuentes
+        for (let slug of sharedSlugs) {
+          if (!slugsInSource.has(slug)) {
+            sharedSlugs.delete(slug);
+          }
+        }
       }
-    }
-    return true;
-  });
+    });
+    
+    films = films.filter(f => sharedSlugs.has(f.slug));
+  }
+
+  // Filtro de géneros
+  if (state.selectedGenres.size > 0) {
+    films = films.filter(f => f.genres.some(gid => state.selectedGenres.has(gid)));
+  }
+
+  // Filtro de rating
+  if (state.minRating > 0) {
+    films = films.filter(f => {
+      const rating = f.tmdbData?.vote_average ?? 0;
+      return rating >= state.minRating;
+    });
+  }
+
+  return films;
 }
 
 function updateFilmCount() {
@@ -384,16 +476,23 @@ async function loadEverything() {
 
     state.enrichedFilms = films;
 
+    // Calcular películas por fuente (necesario para el filtro de compartidas)
+    const rawFilms = await loadFilmsFromSourcesRaw(urls);
+    state.filmsBySource = rawFilms; // {sourceUrl: [films]}
+
     // Géneros presentes en las películas cargadas
     const presentIds = new Set(films.flatMap(f => f.genres));
     state.availableGenres = genres.filter(g => presentIds.has(g.id));
 
-    // No seleccionar ninguno por defecto (usuario elige cuáles quiere)
+    // Resetear filtros
     state.selectedGenres = new Set();
     state.minRating = 0;
+    state.onlyShared = false;
 
     renderGenreChips();
     renderRatingStars();
+    updateSharedToggleUI();
+    attachSharedToggleListener();
     updateFilmCount();
 
     $("section-filters").classList.remove("hidden");
