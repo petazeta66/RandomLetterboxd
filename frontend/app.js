@@ -201,35 +201,56 @@ function renderRatingStars() {
   const container = $("rating-stars");
   container.innerHTML = "";
 
-  // 0 = sin filtro, 1-10 = rating mínimo
-  for (let rating = 0; rating <= 10; rating++) {
-    const star = document.createElement("button");
-    star.className = "rating-star" + (state.minRating === rating ? " active" : "");
-    star.dataset.rating = rating;
+  // Opciones: 0 (sin filtro), 0.5, 1, 1.5, 2, 2.5, 3, 3.5, 4, 4.5, 5
+  const ratings = [0, 0.5, 1, 1.5, 2, 2.5, 3, 3.5, 4, 4.5, 5];
+
+  ratings.forEach(rating => {
+    const btn = document.createElement("button");
+    btn.className = "rating-btn" + (state.minRating === rating ? " active" : "");
+    btn.dataset.rating = rating;
     
     if (rating === 0) {
-      star.innerHTML = "✕";
-      star.title = "Sin filtro";
+      btn.innerHTML = "✕";
+      btn.title = "Sin filtro";
+      btn.classList.add("no-filter");
     } else {
-      star.innerHTML = "★";
-      star.title = `${rating}/10 o más`;
+      // Renderizar estrellas visuales
+      const fullStars = Math.floor(rating);
+      const hasHalf = rating % 1 === 0.5;
+      const emptyStars = 5 - fullStars - (hasHalf ? 1 : 0);
+      
+      let starHtml = "";
+      for (let i = 0; i < fullStars; i++) {
+        starHtml += `<img src="assets/estrella_llena.png" alt="star" />`;
+      }
+      if (hasHalf) {
+        starHtml += `<img src="assets/estrella_mitad.png" alt="half-star" />`;
+      }
+      for (let i = 0; i < emptyStars; i++) {
+        starHtml += `<img src="assets/estrella_vacia.png" alt="empty-star" />`;
+      }
+      
+      btn.innerHTML = starHtml;
+      btn.title = `${rating}/5 o más`;
+      btn.classList.add("star-rating");
     }
     
-    star.addEventListener("click", () => {
-      state.minRating = rating;
+    btn.addEventListener("click", () => {
+      state.minRating = rating === 0 ? 0 : (rating / 5) * 10; // Convertir a escala 0-10
       renderRatingStars();
       updateFilmCount();
     });
     
-    container.appendChild(star);
-  }
+    container.appendChild(btn);
+  });
 
   // Actualizar label
   const label = $("rating-label");
   if (state.minRating === 0) {
     label.textContent = "Sin filtro de rating";
   } else {
-    label.textContent = `Mostrando películas con rating ≥ ${state.minRating}/10`;
+    const starsOut5 = (state.minRating / 10) * 5;
+    label.textContent = `Mostrando películas con rating ≥ ${starsOut5.toFixed(1)}/5`;
   }
 }
 

@@ -238,36 +238,51 @@ button { cursor: pointer; font-family: inherit; border: none; transition: var(--
 }
 
 /* ── Rating stars ── */
-.rating-stars {
+.rating-stars-visual {
   display: flex;
-  gap: 0.3rem;
+  gap: 0.6rem;
   margin-top: 0.5rem;
   flex-wrap: wrap;
 }
 
-.rating-star {
-  background: var(--surface2);
-  border: 1px solid var(--border);
+.rating-btn {
+  background: transparent;
+  border: 2px solid transparent;
   border-radius: var(--radius-sm);
   padding: 0.4rem 0.6rem;
-  font-size: 0.9rem;
   cursor: pointer;
   transition: var(--transition);
+  display: flex;
+  gap: 0.15rem;
+  align-items: center;
+}
+
+.rating-btn.no-filter {
+  font-size: 1.2rem;
   color: var(--text-muted);
-  min-width: 32px;
-  text-align: center;
+  min-width: 40px;
+  justify-content: center;
 }
 
-.rating-star:hover {
-  border-color: var(--accent);
+.rating-btn.no-filter:hover {
   color: var(--accent);
+  border-color: var(--accent);
 }
 
-.rating-star.active {
-  background: var(--accent);
+.rating-btn.star-rating img {
+  width: 16px;
+  height: 16px;
+  object-fit: contain;
+}
+
+.rating-btn:hover {
   border-color: var(--accent);
-  color: #000;
-  font-weight: 700;
+  background: rgba(0, 192, 48, 0.1);
+}
+
+.rating-btn.active {
+  background: rgba(0, 192, 48, 0.2);
+  border-color: var(--accent);
 }
 
 /* ── User lists ── */
