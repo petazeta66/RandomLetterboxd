@@ -13,8 +13,13 @@ const state = {
   availableGenres: [],   // [{id, name}]
   activeSources: [],     // [{label, url}]
   onlyShared: false,     // Mostrar solo películas compartidas entre fuentes
+  sharedMin: 2,          // Nº mínimo de fuentes en las que debe aparecer una película
   loadedUrls: [],        // URLs usadas en la ultima carga
+  loadedSources: [],     // [{url, count}] fuentes que realmente devolvieron películas
 };
+
+// Escala interna del rating: 0-10 (la misma que usa TMDB). 2 puntos = 1 estrella.
+const RATING_MAX = 10;
 
 // ── Utilidades ────────────────────────────────────────────────────────────────
 function $(id) { return document.getElementById(id); }
@@ -175,25 +180,79 @@ function renderActiveSources() {
   });
 }
 
+function toggleShared() {
+  if (state.loadedSources.length < 2) {
+    showToast("Necesitas cargar 2 o más fuentes para filtrar por películas compartidas.", "error");
+    return;
+  }
+  state.onlyShared = !state.onlyShared;
+  updateSharedToggleUI();
+  updateFilmCount();
+}
+
+function sharedFilmCount(min) {
+  return state.enrichedFilms.filter(f => (f.source_count ?? 1) >= min).length;
+}
+
 function updateSharedToggleUI() {
   const btn = $("btn-toggle-shared");
   const info = $("shared-info");
-  const hasMultipleSources = state.loadedUrls.length > 1;
+  const minBox = $("shared-min");
+  if (!btn) return;
 
-  btn.disabled = !hasMultipleSources;
-  btn.style.opacity = hasMultipleSources ? "1" : "0.5";
-  btn.style.cursor = hasMultipleSources ? "pointer" : "default";
+  const total = state.loadedSources.length;
+  const canShare = total > 1;
 
-  if (state.onlyShared && hasMultipleSources) {
-    btn.classList.add("active");
-    btn.querySelector(".toggle-icon").textContent = "◉";
-    info.textContent = "Mostrando solo peliculas compartidas entre " + state.loadedUrls.length + " fuentes";
+  // Ojo: no usamos el atributo `disabled` — un botón deshabilitado no emite
+  // eventos de clic y el usuario se queda sin saber por qué no pasa nada.
+  btn.classList.toggle("locked", !canShare);
+  btn.setAttribute("aria-disabled", String(!canShare));
+
+  if (!canShare) state.onlyShared = false;
+  state.sharedMin = Math.max(2, Math.min(state.sharedMin, Math.max(2, total)));
+
+  btn.classList.toggle("active", state.onlyShared);
+  btn.setAttribute("aria-pressed", String(state.onlyShared));
+  btn.querySelector(".toggle-icon").textContent = state.onlyShared ? "◉" : "◎";
+
+  if (!canShare) {
+    info.textContent = "Carga 2 o más fuentes (watchlists, listas o URLs) para poder cruzarlas.";
     info.classList.remove("hidden");
-  } else {
-    state.onlyShared = false;
-    btn.classList.remove("active");
-    btn.querySelector(".toggle-icon").textContent = "◎";
+    minBox.classList.add("hidden");
+    minBox.innerHTML = "";
+    return;
+  }
+
+  if (!state.onlyShared) {
     info.classList.add("hidden");
+    minBox.classList.add("hidden");
+    minBox.innerHTML = "";
+    return;
+  }
+
+  const shared = sharedFilmCount(state.sharedMin);
+  info.textContent = `${shared} película${shared !== 1 ? "s" : ""} aparecen en al menos ` +
+    `${state.sharedMin} de las ${total} fuentes cargadas.`;
+  info.classList.remove("hidden");
+
+  // Con 3+ fuentes dejamos elegir cuántas deben coincidir (2, 3, ... todas)
+  if (total > 2) {
+    const opts = Array.from({ length: total - 1 }, (_, i) => i + 2);
+    minBox.innerHTML =
+      `<span class="shared-min-label">Coincidir en al menos:</span>` +
+      opts.map(v => `<button type="button" class="chip${v === state.sharedMin ? " active" : ""}" ` +
+        `data-min="${v}">${v === total ? `todas (${v})` : v}</button>`).join("");
+    minBox.querySelectorAll("button[data-min]").forEach(b => {
+      b.addEventListener("click", () => {
+        state.sharedMin = Number(b.dataset.min);
+        updateSharedToggleUI();
+        updateFilmCount();
+      });
+    });
+    minBox.classList.remove("hidden");
+  } else {
+    minBox.classList.add("hidden");
+    minBox.innerHTML = "";
   }
 }
 
@@ -224,112 +283,136 @@ function renderRatingStars() {
   const container = $("rating-stars-drag");
   container.innerHTML = "";
 
-  // Crear 5 estrellas
+  // Crear 5 estrellas. draggable="false" evita que el navegador inicie su
+  // arrastre nativo de imágenes (el cursor de "prohibido" que se quedaba pillado).
   for (let i = 1; i <= 5; i++) {
     const star = document.createElement("div");
     star.className = "rating-star-drag";
     star.dataset.starIndex = i;
-    star.innerHTML = `<img src="assets/estrella_vacia.png" alt="star" />`;
+    star.innerHTML = `<img src="assets/estrella_vacia.png" alt="" draggable="false" />`;
     container.appendChild(star);
   }
 
   updateRatingDisplay();
-  attachRatingListeners();
 }
 
 function updateRatingDisplay() {
-  const stars = document.querySelectorAll(".rating-star-drag");
-  const fullStars = Math.floor(state.minRating / 2); // Convertir de escala 0-10 a 0-5
-  const hasHalf = (state.minRating % 2 === 1);
+  const container = $("rating-stars-drag");
+  const stars = container.querySelectorAll(".rating-star-drag");
+  const value = state.minRating;                 // 0-10, enteros (media estrella = 1)
+  const fullStars = Math.floor(value / 2);
+  const hasHalf = value % 2 === 1;
 
   stars.forEach((star, idx) => {
     const starNum = idx + 1;
     const img = star.querySelector("img");
 
-    if (starNum < fullStars) {
-      img.src = "assets/estrella_llena.png";
-      img.alt = "full star";
-    } else if (starNum === fullStars && hasHalf) {
-      img.src = "assets/estrella_mitad.png";
-      img.alt = "half star";
-    } else {
-      img.src = "assets/estrella_vacia.png";
-      img.alt = "empty star";
+    let src = "assets/estrella_vacia.png";
+    let alt = "";
+    if (starNum <= fullStars) {
+      src = "assets/estrella_llena.png";
+    } else if (starNum === fullStars + 1 && hasHalf) {
+      src = "assets/estrella_mitad.png";
     }
+    // Solo tocamos el src si cambia, para que no parpadee al arrastrar
+    if (!img.getAttribute("src").endsWith(src)) img.setAttribute("src", src);
+    img.alt = alt;
   });
 
-  // Actualizar label
+  const outOf5 = value / 2;
+  container.setAttribute("aria-valuenow", String(outOf5));
+  container.setAttribute("aria-valuetext", value === 0 ? "Sin filtro" : `${outOf5.toFixed(1)} de 5`);
+
   const label = $("rating-label");
-  if (state.minRating === 0) {
-    label.textContent = "Sin filtro de rating";
-  } else {
-    const starsOut5 = state.minRating / 2;
-    label.textContent = `Mostrando películas con rating ≥ ${starsOut5.toFixed(1)}/5`;
-  }
+  label.textContent = value === 0
+    ? "Sin filtro de rating"
+    : `Mostrando películas con rating ≥ ${outOf5.toFixed(1)}/5`;
 }
 
 function attachRatingListeners() {
   const container = $("rating-stars-drag");
   const clearBtn = $("btn-clear-rating");
+  if (!container || container.dataset.bound === "1") return;
+  container.dataset.bound = "1";   // evita listeners duplicados en cada recarga
 
-  let isDragging = false;
+  let dragging = false;
 
-  const handleMouseMove = (e) => {
-    if (!isDragging) return;
-    updateRatingFromMouse(e, container);
-  };
-
-  const handleMouseDown = (e) => {
-    isDragging = true;
-    updateRatingFromMouse(e, container);
-  };
-
-  const handleMouseUp = () => {
-    isDragging = false;
-  };
-
-  function updateRatingFromMouse(e, containerEl) {
-    const rect = containerEl.getBoundingClientRect();
-    const x = e.clientX - rect.left;
-    const width = rect.width;
-    
-    // Clamp x entre 0 y width
-    const clampedX = Math.max(0, Math.min(x, width));
-    const ratio = clampedX / width;
-    
-    // Convertir a escala 0-10 con precisión de 0.5
-    let newRating = Math.round(ratio * 20) / 2;
-    newRating = Math.min(newRating, 10);
-    
-    state.minRating = newRating;
+  function setRating(value) {
+    const v = Math.max(0, Math.min(RATING_MAX, value));
+    if (v === state.minRating) return;
+    state.minRating = v;
     updateRatingDisplay();
     updateFilmCount();
   }
 
-  container.addEventListener("mousedown", handleMouseDown);
-  container.addEventListener("mousemove", handleMouseMove);
-  document.addEventListener("mouseup", handleMouseUp);
+  // Medimos sobre las estrellas reales, no sobre el contenedor (que tiene
+  // padding). Así el extremo derecho corresponde exactamente a 5 estrellas.
+  function ratingFromPointer(e) {
+    const stars = container.querySelectorAll(".rating-star-drag");
+    if (!stars.length) return 0;
+    const first = stars[0].getBoundingClientRect();
+    const last = stars[stars.length - 1].getBoundingClientRect();
+    const width = last.right - first.left;
+    if (width <= 0) return 0;
+    const ratio = (e.clientX - first.left) / width;
+    return Math.round(Math.max(0, Math.min(1, ratio)) * RATING_MAX);
+  }
 
-  clearBtn.addEventListener("click", () => {
-    state.minRating = 0;
-    updateRatingDisplay();
-    updateFilmCount();
+  const stop = (e) => {
+    if (!dragging) return;
+    dragging = false;
+    if (e && e.pointerId !== undefined) {
+      try { container.releasePointerCapture(e.pointerId); } catch { /* ya liberado */ }
+    }
+  };
+
+  container.addEventListener("pointerdown", (e) => {
+    if (e.button !== undefined && e.button !== 0) return;
+    e.preventDefault();
+    dragging = true;
+    try { container.setPointerCapture(e.pointerId); } catch { /* no soportado */ }
+    container.focus({ preventScroll: true });
+    setRating(ratingFromPointer(e));
   });
+
+  container.addEventListener("pointermove", (e) => {
+    if (!dragging) return;
+    e.preventDefault();
+    setRating(ratingFromPointer(e));
+  });
+
+  container.addEventListener("pointerup", stop);
+  container.addEventListener("pointercancel", stop);
+  window.addEventListener("pointerup", stop);
+  window.addEventListener("blur", () => stop());
+
+  // Cinturón y tirantes: si algún navegador aún intenta arrastrar, lo cortamos.
+  container.addEventListener("dragstart", (e) => e.preventDefault());
+
+  container.addEventListener("keydown", (e) => {
+    const step = e.shiftKey ? 2 : 1;   // Shift = estrella entera
+    if (e.key === "ArrowRight" || e.key === "ArrowUp") {
+      e.preventDefault(); setRating(state.minRating + step);
+    } else if (e.key === "ArrowLeft" || e.key === "ArrowDown") {
+      e.preventDefault(); setRating(state.minRating - step);
+    } else if (e.key === "Home") {
+      e.preventDefault(); setRating(0);
+    } else if (e.key === "End") {
+      e.preventDefault(); setRating(RATING_MAX);
+    }
+  });
+
+  if (clearBtn) clearBtn.addEventListener("click", () => setRating(0));
 }
 
 function getFilteredFilms() {
   let films = state.enrichedFilms;
 
-  // Filtro de películas compartidas — simplificado:
-  // Si hay 2+ fuentes cargadas, mostrar todas (ya que el backend las combina)
-  // Para un filtrado real necesitaríamos metadata de qué fuente tiene cada película
-  if (state.onlyShared) {
-    const sourceCount = state.loadedUrls.length;
-    if (sourceCount <= 1) {
-      // Si solo hay 1 fuente, no hay "compartidas"
-      films = [];
-    }
-    // Si hay 2+, mostrar las películas (simplificación)
+  // Filtro de películas compartidas: el backend marca cada película con
+  // `sources` (URLs en las que aparece) y `source_count`.
+  if (state.onlyShared && state.loadedSources.length > 1) {
+    const min = Math.max(2, Math.min(state.sharedMin, state.loadedSources.length));
+    films = films.filter(f => (f.source_count ?? 1) >= min);
   }
 
   // Filtro de géneros
@@ -350,17 +433,21 @@ function getFilteredFilms() {
 
 function updateFilmCount() {
   const filtered = getFilteredFilms();
-  const label = state.selectedGenres.size === 0
-    ? `<strong>${filtered.length}</strong> película${filtered.length !== 1 ? "s" : ""} disponible${filtered.length !== 1 ? "s" : ""} (selecciona géneros para filtrar)`
-    : `<strong>${filtered.length}</strong> película${filtered.length !== 1 ? "s" : ""} disponible${filtered.length !== 1 ? "s" : ""} con los filtros actuales`;
-  $("film-count-label").innerHTML = label;
+  const n = filtered.length;
+  const plural = n !== 1 ? "s" : "";
+  const hasFilters = state.selectedGenres.size > 0 || state.minRating > 0 || state.onlyShared;
+  const suffix = hasFilters
+    ? "con los filtros actuales"
+    : "(selecciona géneros o un rating mínimo para filtrar)";
+  $("film-count-label").innerHTML =
+    `<strong>${n}</strong> película${plural} disponible${plural} ${suffix}`;
 }
 
 // ── RESULTADO ─────────────────────────────────────────────────────────────────
 async function showRandomFilm() {
   const pool = getFilteredFilms();
   if (pool.length === 0) {
-    showToast("No hay películas con los géneros seleccionados. Selecciona algunos géneros o pulsa 'Todos'.", "error");
+    showToast("Ninguna película pasa los filtros actuales. Prueba a bajar el rating mínimo, ampliar géneros o desactivar 'Solo compartidas'.", "error");
     return;
   }
 
@@ -405,11 +492,11 @@ async function loadEverything() {
     return;
   }
 
-  showLoader("Scrapeando Letterboxd y consultando TMDB...");
+  showLoader("Revisando Letterboxd y consultando TMDB...");
 
   try {
     // Un solo endpoint hace scraping + enriquecimiento TMDB en paralelo en el servidor
-    const { films, genres } = await loadFilmsEnriched(urls);
+    const { films, genres, sources } = await loadFilmsEnriched(urls);
 
     if (films.length === 0) {
       showToast("No se encontraron películas en las fuentes indicadas.", "error");
@@ -417,12 +504,16 @@ async function loadEverything() {
     }
 
     state.enrichedFilms = films;
-    state.loadedUrls = urls; // guardar las URLs usadas para el filtro de compartidas
+    state.availableGenres = genres ?? [];   // sin esto los chips de género salían vacíos
+    state.loadedUrls = urls;
+    // Solo cuentan como fuente las que realmente devolvieron películas
+    state.loadedSources = (sources ?? []).filter(s => (s.count ?? 0) > 0);
 
     // Resetear filtros
     state.selectedGenres = new Set();
     state.minRating = 0;
     state.onlyShared = false;
+    state.sharedMin = 2;
 
     renderGenreChips();
     renderRatingStars();
@@ -556,11 +647,19 @@ function escapeHtml(str) {
 }
 
 // ── EVENT LISTENERS ───────────────────────────────────────────────────────────
+// Helper defensivo: si un id desaparece del HTML, avisamos por consola en vez de
+// romper el resto de listeners (era justo lo que pasaba con btn-select-all-genres).
+function on(id, event, handler) {
+  const el = $(id);
+  if (!el) { console.warn(`[app] No existe el elemento #${id}; listener omitido.`); return; }
+  el.addEventListener(event, handler);
+}
+
 document.addEventListener("DOMContentLoaded", () => {
-  $("btn-add-url").addEventListener("click", addUrlInput);
+  on("btn-add-url", "click", addUrlInput);
 
   // Eliminar primera fila de URL si hay más de una
-  $("url-inputs").addEventListener("click", (e) => {
+  on("url-inputs", "click", (e) => {
     if (e.target.classList.contains("btn-remove-url")) {
       const rows = document.querySelectorAll(".url-row");
       if (rows.length > 1) {
@@ -571,34 +670,32 @@ document.addEventListener("DOMContentLoaded", () => {
     }
   });
 
-  $("btn-load-watchlist").addEventListener("click", loadWatchlist);
-  $("btn-browse-lists").addEventListener("click", browseUserLists);
-  $("btn-browse-liked").addEventListener("click", browseLikedLists);
-  $("btn-load-films").addEventListener("click", loadEverything);
+  on("btn-load-watchlist", "click", loadWatchlist);
+  on("btn-browse-lists", "click", browseUserLists);
+  on("btn-browse-liked", "click", browseLikedLists);
+  on("btn-load-films", "click", loadEverything);
 
-  $("btn-randomize").addEventListener("click", showRandomFilm);
+  on("btn-randomize", "click", showRandomFilm);
 
-  $("btn-select-all-genres").addEventListener("click", () => {
+  on("btn-select-all-genres", "click", () => {
     state.selectedGenres = new Set(state.availableGenres.map(g => g.id));
     renderGenreChips();
     updateFilmCount();
   });
 
-  $("btn-clear-genres").addEventListener("click", () => {
+  on("btn-clear-genres", "click", () => {
     state.selectedGenres.clear();
     renderGenreChips();
     updateFilmCount();
   });
 
-  // Toggle de peliculas compartidas
-  const sharedBtn = document.getElementById("btn-toggle-shared");
-  if (sharedBtn) {
-    sharedBtn.addEventListener("click", () => {
-      state.onlyShared = !state.onlyShared;
-      updateSharedToggleUI();
-      updateFilmCount();
-    });
-  }
+  // Toggle de películas compartidas (un único listener: el onclick inline del
+  // HTML se ha eliminado porque disparaba el toggle dos veces por clic).
+  on("btn-toggle-shared", "click", toggleShared);
+
+  // El slider de estrellas se enlaza una sola vez; las estrellas se repintan
+  // después en cada carga sin volver a registrar listeners.
+  attachRatingListeners();
 
   // Añadir URL con Enter
   document.addEventListener("keydown", (e) => {

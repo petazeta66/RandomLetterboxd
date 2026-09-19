@@ -287,19 +287,55 @@ async def scrape_liked_lists(username: str) -> list[dict]:
     return lists_found
 
 
-async def scrape_multiple_sources(sources: list[str]) -> list[dict]:
+def normalize_source_url(url: str) -> str:
+    """Normaliza una URL de fuente para poder compararlas entre sí."""
+    clean = (url or "").strip()
+    if not clean:
+        return ""
+    clean = clean.split("?")[0].split("#")[0]
+    return clean.rstrip("/") + "/"
+
+
+async def scrape_multiple_sources(sources: list[str], with_stats: bool = False):
     """
     Scrapea varias URLs en paralelo y combina los resultados sin duplicados.
+
+    Cada película conserva de qué fuentes viene:
+      - "sources":      lista de URLs en las que aparece
+      - "source_count": en cuántas fuentes aparece
+
+    Esto es lo que permite el filtro de "solo películas compartidas": antes se
+    deduplicaba por slug y se perdía la procedencia, así que era imposible saber
+    qué películas tenían en común dos o más listas/usuarios.
+
+    Con with_stats=True devuelve además [{url, count}] por fuente.
     """
-    tasks = [scrape_list(url) for url in sources]
-    results = await asyncio.gather(*tasks)
+    # Deduplicar fuentes conservando el orden (dos veces la misma lista no son
+    # dos fuentes distintas)
+    unique_sources: list[str] = []
+    for raw in sources:
+        norm = normalize_source_url(raw)
+        if norm and norm not in unique_sources:
+            unique_sources.append(norm)
 
-    seen = set()
-    combined = []
-    for film_list in results:
+    results = await asyncio.gather(*[scrape_list(url) for url in unique_sources])
+
+    by_slug: dict[str, dict] = {}
+    stats: list[dict] = []
+
+    for url, film_list in zip(unique_sources, results):
+        stats.append({"url": url, "count": len(film_list)})
         for film in film_list:
-            if film["slug"] not in seen:
-                seen.add(film["slug"])
-                combined.append(film)
+            slug = film["slug"]
+            existing = by_slug.get(slug)
+            if existing is None:
+                by_slug[slug] = {**film, "sources": [url], "source_count": 1}
+            elif url not in existing["sources"]:
+                existing["sources"].append(url)
+                existing["source_count"] = len(existing["sources"])
 
+    combined = list(by_slug.values())
+
+    if with_stats:
+        return combined, stats
     return combined

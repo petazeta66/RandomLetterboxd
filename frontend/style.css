@@ -251,6 +251,8 @@ button { cursor: pointer; font-family: inherit; border: none; transition: var(--
   align-items: center;
   cursor: pointer;
   user-select: none;
+  -webkit-user-select: none;
+  touch-action: none;          /* permite arrastrar en móvil sin hacer scroll */
   flex: 1;
   max-width: 150px;
   padding: 0.5rem 0.8rem;
@@ -276,11 +278,21 @@ button { cursor: pointer; font-family: inherit; border: none; transition: var(--
   flex-basis: 20%;
 }
 
+.rating-stars-drag:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: 2px;
+}
+
 .rating-star-drag img {
   width: 100%;
   height: 100%;
   object-fit: contain;
   display: block;
+  /* Sin esto el navegador arranca su arrastre nativo de imagen: aparece el
+     cursor de "prohibido" y el slider se queda bloqueado hasta soltar. */
+  pointer-events: none;
+  user-select: none;
+  -webkit-user-drag: none;
 }
 
 .btn-clear-rating {
@@ -508,9 +520,35 @@ button { cursor: pointer; font-family: inherit; border: none; transition: var(--
   font-weight: 600;
 }
 
-.btn-toggle:disabled {
+.btn-toggle:disabled,
+.btn-toggle.locked {
   opacity: 0.5;
-  cursor: default;
+  cursor: not-allowed;
+}
+
+.btn-toggle.locked:hover {
+  border-color: var(--border);
+  color: var(--text-muted);
+  background: var(--surface2);
+}
+
+/* Selector de "coincidir en al menos N fuentes" */
+.shared-min {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.4rem;
+  margin-top: 0.6rem;
+}
+
+.shared-min-label {
+  font-size: 0.8rem;
+  color: var(--text-muted);
+}
+
+.shared-min .chip {
+  font-size: 0.78rem;
+  padding: 0.2rem 0.7rem;
 }
 
 .toggle-icon {

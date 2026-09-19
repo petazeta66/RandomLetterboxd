@@ -59,12 +59,12 @@ async def get_films(req: ScrapeRequest):
     if not req.sources:
         raise HTTPException(status_code=400, detail="Debes proporcionar al menos una URL.")
 
-    films = await scrape_multiple_sources(req.sources)
+    films, sources = await scrape_multiple_sources(req.sources, with_stats=True)
 
     if not films:
         raise HTTPException(status_code=404, detail="No se encontraron películas en las fuentes indicadas.")
 
-    return {"count": len(films), "films": films}
+    return {"count": len(films), "films": films, "sources": sources}
 
 
 @app.post("/api/films/enriched")
@@ -76,7 +76,7 @@ async def get_films_enriched(req: ScrapeRequest):
     if not req.sources:
         raise HTTPException(status_code=400, detail="Debes proporcionar al menos una URL.")
 
-    films = await scrape_multiple_sources(req.sources)
+    films, sources = await scrape_multiple_sources(req.sources, with_stats=True)
     if not films:
         raise HTTPException(status_code=404, detail="No se encontraron películas en las fuentes indicadas.")
 
@@ -143,6 +143,9 @@ async def get_films_enriched(req: ScrapeRequest):
         "count": len(enriched),
         "films": list(enriched),
         "genres": genres,
+        # Cuántas películas aportó cada fuente: el frontend lo usa para saber
+        # si el filtro de "solo compartidas" tiene sentido y cuántas fuentes cruzar.
+        "sources": sources,
     }
 
 

@@ -70,6 +70,7 @@
       <div class="field-group">
         <label>Géneros</label>
         <div class="genre-controls">
+          <button class="btn-ghost small" id="btn-select-all-genres">Todos</button>
           <button class="btn-ghost small" id="btn-clear-genres">Limpiar</button>
         </div>
         <div id="genre-chips" class="chip-container"></div>
@@ -78,7 +79,10 @@
       <div class="field-group">
         <label>Rating mínimo</label>
         <div id="rating-container" class="rating-container">
-          <div id="rating-stars-drag" class="rating-stars-drag"></div>
+          <div id="rating-stars-drag" class="rating-stars-drag"
+             role="slider" tabindex="0"
+             aria-label="Rating mínimo"
+             aria-valuemin="0" aria-valuemax="5" aria-valuenow="0"></div>
           <button id="btn-clear-rating" class="btn-clear-rating" title="Limpiar filtro">✕</button>
         </div>
         <p id="rating-label" class="muted"></p>
@@ -87,11 +91,12 @@
       <div class="field-group">
         <label>Opciones</label>
         <div class="filter-toggles">
-          <button type="button" id="btn-toggle-shared" class="btn-toggle">
+          <button type="button" id="btn-toggle-shared" class="btn-toggle" aria-pressed="false">
             <span class="toggle-icon">◎</span>
             Solo películas compartidas
           </button>
         </div>
+        <div id="shared-min" class="shared-min hidden"></div>
         <p id="shared-info" class="muted hidden"></p>
       </div>
 
