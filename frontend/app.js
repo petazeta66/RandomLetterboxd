@@ -600,14 +600,15 @@ document.addEventListener("DOMContentLoaded", () => {
     updateFilmCount();
   });
 
-  // Toggle de películas compartidas
-  $("btn-toggle-shared").addEventListener("click", () => {
-    if (state.loadedUrls.length > 1) {
+  // Toggle de peliculas compartidas
+  const sharedBtn = document.getElementById("btn-toggle-shared");
+  if (sharedBtn) {
+    sharedBtn.addEventListener("click", () => {
       state.onlyShared = !state.onlyShared;
       updateSharedToggleUI();
       updateFilmCount();
-    }
-  });
+    });
+  }
 
   // Añadir URL con Enter
   document.addEventListener("keydown", (e) => {
