@@ -600,7 +600,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
   // Toggle de películas compartidas
   $("btn-toggle-shared").addEventListener("click", () => {
-    if (Object.keys(state.filmsBySource).length > 1) {
+    if (state.activeSources.length > 1) {
       state.onlyShared = !state.onlyShared;
       updateSharedToggleUI();
       updateFilmCount();
