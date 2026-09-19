@@ -13,6 +13,7 @@ const state = {
   availableGenres: [],   // [{id, name}]
   activeSources: [],     // [{label, url}]
   onlyShared: false,     // Mostrar solo películas compartidas entre fuentes
+  loadedUrls: [],        // URLs usadas en la ultima carga
 };
 
 // ── Utilidades ────────────────────────────────────────────────────────────────
@@ -177,7 +178,7 @@ function renderActiveSources() {
 function updateSharedToggleUI() {
   const btn = $("btn-toggle-shared");
   const info = $("shared-info");
-  const sourceCount = state.activeSources.length;
+  const sourceCount = state.loadedUrls.length;
 
   if (sourceCount <= 1) {
     btn.disabled = true;
@@ -333,7 +334,7 @@ function getFilteredFilms() {
   // Si hay 2+ fuentes cargadas, mostrar todas (ya que el backend las combina)
   // Para un filtrado real necesitaríamos metadata de qué fuente tiene cada película
   if (state.onlyShared) {
-    const sourceCount = state.activeSources.length;
+    const sourceCount = state.loadedUrls.length;
     if (sourceCount <= 1) {
       // Si solo hay 1 fuente, no hay "compartidas"
       films = [];
@@ -426,6 +427,7 @@ async function loadEverything() {
     }
 
     state.enrichedFilms = films;
+    state.loadedUrls = urls; // guardar las URLs usadas para el filtro de compartidas
 
     // Resetear filtros
     state.selectedGenres = new Set();
@@ -600,7 +602,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
   // Toggle de películas compartidas
   $("btn-toggle-shared").addEventListener("click", () => {
-    if (state.activeSources.length > 1) {
+    if (state.loadedUrls.length > 1) {
       state.onlyShared = !state.onlyShared;
       updateSharedToggleUI();
       updateFilmCount();
