@@ -199,7 +199,6 @@ function renderActiveSources() {
   });
 }
 
-// ── Botón toggle compartidas ──────────────────────────────────────────────────
 function updateSharedToggleUI() {
   const btn = $("btn-toggle-shared");
   const info = $("shared-info");
@@ -232,17 +231,6 @@ function updateSharedToggleUI() {
       info.classList.add("hidden");
     }
   }
-}
-
-function attachSharedToggleListener() {
-  const btn = $("btn-toggle-shared");
-  btn.addEventListener("click", () => {
-    if (Object.keys(state.filmsBySource).length > 1) {
-      state.onlyShared = !state.onlyShared;
-      updateSharedToggleUI();
-      updateFilmCount();
-    }
-  });
 }
 function renderGenreChips() {
   const container = $("genre-chips");
@@ -492,7 +480,6 @@ async function loadEverything() {
     renderGenreChips();
     renderRatingStars();
     updateSharedToggleUI();
-    attachSharedToggleListener();
     updateFilmCount();
 
     $("section-filters").classList.remove("hidden");
@@ -654,6 +641,15 @@ document.addEventListener("DOMContentLoaded", () => {
     state.selectedGenres.clear();
     renderGenreChips();
     updateFilmCount();
+  });
+
+  // Toggle de películas compartidas
+  $("btn-toggle-shared").addEventListener("click", () => {
+    if (Object.keys(state.filmsBySource).length > 1) {
+      state.onlyShared = !state.onlyShared;
+      updateSharedToggleUI();
+      updateFilmCount();
+    }
   });
 
   // Añadir URL con Enter

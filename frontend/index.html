@@ -60,17 +60,6 @@
         <ul id="active-sources-list"></ul>
       </div>
 
-      <div class="field-group">
-        <label>Filtros</label>
-        <div class="filter-toggles">
-          <button id="btn-toggle-shared" class="btn-toggle" data-active="false">
-            <span class="toggle-icon">◎</span>
-            Solo películas compartidas
-          </button>
-        </div>
-        <p id="shared-info" class="muted hidden"></p>
-      </div>
-
       <button class="btn-primary" id="btn-load-films">Cargar películas</button>
     </section>
 
@@ -81,8 +70,7 @@
       <div class="field-group">
         <label>Géneros</label>
         <div class="genre-controls">
-          <button class="btn-ghost small" id="btn-select-all-genres">Todos</button>
-          <button class="btn-ghost small" id="btn-clear-genres">Ninguno</button>
+          <button class="btn-ghost small" id="btn-clear-genres">Limpiar</button>
         </div>
         <div id="genre-chips" class="chip-container"></div>
       </div>
@@ -94,6 +82,17 @@
           <button id="btn-clear-rating" class="btn-clear-rating" title="Limpiar filtro">✕</button>
         </div>
         <p id="rating-label" class="muted"></p>
+      </div>
+
+      <div class="field-group">
+        <label>Opciones</label>
+        <div class="filter-toggles">
+          <button type="button" id="btn-toggle-shared" class="btn-toggle">
+            <span class="toggle-icon">◎</span>
+            Solo películas compartidas
+          </button>
+        </div>
+        <p id="shared-info" class="muted hidden"></p>
       </div>
 
       <p class="film-count" id="film-count-label"></p>
