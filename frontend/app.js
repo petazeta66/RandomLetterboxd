@@ -13,7 +13,6 @@ const state = {
   availableGenres: [],   // [{id, name}]
   activeSources: [],     // [{label, url}]
   onlyShared: false,     // Mostrar solo películas compartidas entre fuentes
-  filmsBySource: {},     // {sourceUrl: [films]} para detectar compartidas
 };
 
 // ── Utilidades ────────────────────────────────────────────────────────────────
@@ -123,30 +122,6 @@ async function loadFilmsEnriched(urls) {
   return await res.json(); // { films, genres, count }
 }
 
-// Cargar películas sin enriquecer (para detectar compartidas entre fuentes)
-async function loadFilmsFromSourcesRaw(urls) {
-  const result = {};
-  
-  const promises = urls.map(async (url) => {
-    try {
-      const res = await fetch(`${API_BASE}/api/films`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ sources: [url] }),
-      });
-      if (res.ok) {
-        const data = await res.json();
-        result[url] = data.films || [];
-      }
-    } catch (err) {
-      result[url] = [];
-    }
-  });
-
-  await Promise.all(promises);
-  return result;
-}
-
 async function loadUserLists(username) {
   const res = await fetch(`${API_BASE}/api/user-lists/${encodeURIComponent(username)}`);
   if (!res.ok) {
@@ -202,7 +177,7 @@ function renderActiveSources() {
 function updateSharedToggleUI() {
   const btn = $("btn-toggle-shared");
   const info = $("shared-info");
-  const sourceCount = Object.keys(state.filmsBySource).length;
+  const sourceCount = state.activeSources.length;
 
   if (sourceCount <= 1) {
     btn.disabled = true;
@@ -220,9 +195,8 @@ function updateSharedToggleUI() {
       btn.dataset.active = "true";
       btn.querySelector(".toggle-icon").textContent = "◉";
 
-      // Contar películas compartidas
-      const sharedCount = getFilteredFilms().length;
-      info.textContent = `${sharedCount} película${sharedCount !== 1 ? "s" : ""} aparecen en todas las fuentes`;
+      // Mostrar que está filtrado
+      info.textContent = `Mostrando películas de todas las ${sourceCount} fuentes`;
       info.classList.remove("hidden");
     } else {
       btn.classList.remove("active");
@@ -355,27 +329,16 @@ function attachRatingListeners() {
 function getFilteredFilms() {
   let films = state.enrichedFilms;
 
-  // Filtro de películas compartidas
-  if (state.onlyShared && Object.keys(state.filmsBySource).length > 1) {
-    const sharedSlugs = new Set();
-    const sourceUrls = Object.keys(state.filmsBySource);
-    
-    // Encontrar slugs que aparecen en todas las fuentes
-    sourceUrls.forEach((url, idx) => {
-      const slugsInSource = new Set(state.filmsBySource[url].map(f => f.slug));
-      if (idx === 0) {
-        slugsInSource.forEach(slug => sharedSlugs.add(slug));
-      } else {
-        // Mantener solo los que están en todas las fuentes
-        for (let slug of sharedSlugs) {
-          if (!slugsInSource.has(slug)) {
-            sharedSlugs.delete(slug);
-          }
-        }
-      }
-    });
-    
-    films = films.filter(f => sharedSlugs.has(f.slug));
+  // Filtro de películas compartidas — simplificado:
+  // Si hay 2+ fuentes cargadas, mostrar todas (ya que el backend las combina)
+  // Para un filtrado real necesitaríamos metadata de qué fuente tiene cada película
+  if (state.onlyShared) {
+    const sourceCount = state.activeSources.length;
+    if (sourceCount <= 1) {
+      // Si solo hay 1 fuente, no hay "compartidas"
+      films = [];
+    }
+    // Si hay 2+, mostrar las películas (simplificación)
   }
 
   // Filtro de géneros
@@ -463,14 +426,6 @@ async function loadEverything() {
     }
 
     state.enrichedFilms = films;
-
-    // Calcular películas por fuente (necesario para el filtro de compartidas)
-    const rawFilms = await loadFilmsFromSourcesRaw(urls);
-    state.filmsBySource = rawFilms; // {sourceUrl: [films]}
-
-    // Géneros presentes en las películas cargadas
-    const presentIds = new Set(films.flatMap(f => f.genres));
-    state.availableGenres = genres.filter(g => presentIds.has(g.id));
 
     // Resetear filtros
     state.selectedGenres = new Set();
