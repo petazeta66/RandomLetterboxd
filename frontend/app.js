@@ -253,31 +253,30 @@ function attachRatingListeners() {
 
   const handleMouseMove = (e) => {
     if (!isDragging) return;
-    updateRatingFromMouse(e);
+    updateRatingFromMouse(e, container);
   };
 
   const handleMouseDown = (e) => {
     isDragging = true;
-    updateRatingFromMouse(e);
+    updateRatingFromMouse(e, container);
   };
 
   const handleMouseUp = () => {
     isDragging = false;
   };
 
-  const handleMouseLeave = () => {
-    isDragging = false;
-  };
-
-  function updateRatingFromMouse(e) {
-    const rect = container.getBoundingClientRect();
+  function updateRatingFromMouse(e, containerEl) {
+    const rect = containerEl.getBoundingClientRect();
     const x = e.clientX - rect.left;
     const width = rect.width;
-    const ratio = Math.max(0, Math.min(1, x / width));
+    
+    // Clamp x entre 0 y width
+    const clampedX = Math.max(0, Math.min(x, width));
+    const ratio = clampedX / width;
     
     // Convertir a escala 0-10 con precisión de 0.5
-    let newRating = Math.round(ratio * 20) / 2; // Esto da: 0, 0.5, 1, 1.5, 2, ..., 10
-    newRating = Math.min(newRating, 10); // Cap a 10
+    let newRating = Math.round(ratio * 20) / 2;
+    newRating = Math.min(newRating, 10);
     
     state.minRating = newRating;
     updateRatingDisplay();
@@ -287,7 +286,6 @@ function attachRatingListeners() {
   container.addEventListener("mousedown", handleMouseDown);
   container.addEventListener("mousemove", handleMouseMove);
   document.addEventListener("mouseup", handleMouseUp);
-  container.addEventListener("mouseleave", handleMouseLeave);
 
   clearBtn.addEventListener("click", () => {
     state.minRating = 0;

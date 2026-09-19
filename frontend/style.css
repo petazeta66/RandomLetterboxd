@@ -252,23 +252,28 @@ button { cursor: pointer; font-family: inherit; border: none; transition: var(--
   cursor: pointer;
   user-select: none;
   flex: 1;
-  padding: 0.4rem 0.6rem;
+  max-width: 150px;
+  padding: 0.5rem 0.8rem;
   border-radius: var(--radius-sm);
+  border: 1px solid var(--border);
   transition: background-color var(--transition);
+  background: var(--surface2);
 }
 
-.rating-stars-drag:hover {
-  background: rgba(0, 192, 48, 0.1);
+.rating-stars-drag:active {
+  background: rgba(0, 192, 48, 0.15);
+  border-color: var(--accent);
 }
 
 .rating-star-drag {
   width: 24px;
   height: 24px;
   flex: 1;
-  max-width: 24px;
+  min-width: 0;
   display: flex;
   align-items: center;
   justify-content: center;
+  flex-basis: 20%;
 }
 
 .rating-star-drag img {
@@ -290,6 +295,7 @@ button { cursor: pointer; font-family: inherit; border: none; transition: var(--
   line-height: 1;
   min-width: 32px;
   text-align: center;
+  flex-shrink: 0;
 }
 
 .btn-clear-rating:hover {
